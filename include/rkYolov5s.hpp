@@ -4,6 +4,17 @@
 #include "rknn_api.h"
 
 #include "opencv2/core/core.hpp"
+struct DetectionResult {
+    std::string name;
+    int left, top, right, bottom;
+    float prop;
+
+    DetectionResult(std::string name, int left, int top, int right, int bottom, float prop)
+        : name(name), left(left), top(top), right(right), bottom(bottom), prop(prop) {}
+};
+
+extern std::vector<DetectionResult> globalDetectionResults;
+
 
 static void dump_tensor_attr(rknn_tensor_attr *attr);
 static unsigned char *load_data(FILE *fp, size_t ofst, size_t sz);
@@ -12,6 +23,7 @@ static int saveFloat(const char *file_name, float *output, int element_size);
 
 class rkYolov5s
 {
+
 private:
     int ret;
     std::mutex mtx;

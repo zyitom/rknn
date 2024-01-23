@@ -252,8 +252,8 @@ static int process(int8_t *input, int *anchor, int grid_h, int grid_w, int heigh
             boxes.push_back(box_y);
             boxes.push_back(box_w);
             boxes.push_back(box_h);
-            std::cout << "Box coordinates: " << box_x << ", " << box_y << ", " << box_w << ", " << box_h << std::endl;
-std::cout << "Class ID: " << maxClassId << std::endl;
+            // std::cout << "Box coordinates: " << box_x << ", " << box_y << ", " << box_w << ", " << box_h << std::endl;
+// std::cout << "Class ID: " << maxClassId << std::endl;
 
           }
         }
@@ -358,9 +358,9 @@ int post_process(int8_t *input0, int8_t *input1, int8_t *input2, int model_in_h,
     char *label = labels[id];
     strncpy(group->results[last_count].name, label, OBJ_NAME_MAX_SIZE);
 
-    printf("result %2d: (%4d, %4d, %4d, %4d), %s\n", i, group->results[last_count].box.left,
-    group->results[last_count].box.top,
-           group->results[last_count].box.right, group->results[last_count].box.bottom, label);
+    // printf("result %2d: (%4d, %4d, %4d, %4d), %s\n", i, group->results[last_count].box.left,
+    // group->results[last_count].box.top,
+    //        group->results[last_count].box.right, group->results[last_count].box.bottom, label);
     last_count++;
   }
   group->count = last_count;
