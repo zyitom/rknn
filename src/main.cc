@@ -29,7 +29,13 @@ int main(int argc, char **argv)
         return -1;
     }
 
-    cv::namedWindow("Camera FPS");
+    cv::namedWindow("Camera Left");
+    cv::namedWindow("Camera Right");
+
+    cv::VideoCapture captureLeft, captureRight;
+    // 假设摄像头ID分别为0和1
+    captureLeft.open(0); 
+    captureRight.open(2);
     cv::VideoCapture capture;
     if (strlen(vedio_name) == 1)
         capture.open((int)(vedio_name[0] - '0'));
@@ -42,17 +48,30 @@ int main(int argc, char **argv)
 
     int frames = 0;
     auto beforeTime = startTime;
-    while (capture.isOpened())
-    {
-        cv::Mat img;
-        if (capture.read(img) == false)
-            break;
-        if (testPool.put(img) != 0)
+ while (captureLeft.isOpened() && captureRight.isOpened()) {
+        cv::Mat imgLeft, imgRight;
+        bool hasFrameLeft = captureLeft.read(imgLeft);
+        bool hasFrameRight = captureRight.read(imgRight);
+
+        if (!hasFrameLeft || !hasFrameRight)
             break;
 
-        if (frames >= threadNum && testPool.get(img) != 0)
+        // 提交到线程池
+        if (hasFrameLeft && testPool.put(imgLeft) != 0)
             break;
-        cv::imshow("Camera FPS", img);
+        if (hasFrameRight && testPool.put(imgRight) != 0)
+            break;
+
+        // 获取处理后的图像
+        if (frames >= threadNum) {
+            if (testPool.get(imgLeft) != 0)
+                break;
+            if (testPool.get(imgRight) != 0)
+                break;
+
+            cv::imshow("Camera Left", imgLeft);
+            cv::imshow("Camera Right", imgRight);
+        }
         if (cv::waitKey(1) == 'q') // 延时1毫秒,按q键退出/Press q to exit
             break;
         frames++;
