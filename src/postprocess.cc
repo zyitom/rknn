@@ -24,7 +24,7 @@
 #include <set>
 #include <vector>
 //#define LABEL_NALE_TXT_PATH "../model/coco_80_labels_list.txt"
-#define LABEL_NALE_TXT_PATH "../model/armor.txt"
+#define LABEL_NALE_TXT_PATH "/home/orangepi/Desktop/rknn-cpp-Multithreading/model/armor.txt"
 static char *labels[OBJ_CLASS_NUM];
 
 const int anchor0[6] = {10, 13, 16, 30, 33, 23};
@@ -252,7 +252,7 @@ static int process(int8_t *input, int *anchor, int grid_h, int grid_w, int heigh
             boxes.push_back(box_y);
             boxes.push_back(box_w);
             boxes.push_back(box_h);
-            // std::cout << "Box coordinates: " << box_x << ", " << box_y << ", " << box_w << ", " << box_h << std::endl;
+//             std::cout << "Box coordinates: " << box_x << ", " << box_y << ", " << box_w << ", " << box_h << std::endl;
 // std::cout << "Class ID: " << maxClassId << std::endl;
 
           }

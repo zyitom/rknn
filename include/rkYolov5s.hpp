@@ -4,16 +4,10 @@
 #include "rknn_api.h"
 
 #include "opencv2/core/core.hpp"
-struct DetectionResult {
+struct DetectedObject {
     std::string name;
-    int left, top, right, bottom;
-    float prop;
-
-    DetectionResult(std::string name, int left, int top, int right, int bottom, float prop)
-        : name(name), left(left), top(top), right(right), bottom(bottom), prop(prop) {}
+    float conf;
 };
-
-extern std::vector<DetectionResult> globalDetectionResults;
 
 
 static void dump_tensor_attr(rknn_tensor_attr *attr);
@@ -42,10 +36,11 @@ private:
     float nms_threshold, box_conf_threshold;
 
 public:
+    std::vector<DetectedObject> processDetectionResults() ;
     rkYolov5s(const std::string &model_path);
     int init(rknn_context *ctx_in, bool isChild);
     rknn_context *get_pctx();
-    cv::Mat infer(cv::Mat &ori_img);
+cv::Mat infer(cv::Mat &orig_img, const std::string& camera_side);
     ~rkYolov5s();
 };
 

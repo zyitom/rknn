@@ -11,7 +11,7 @@
 
 #include "coreNum.hpp"
 #include "rkYolov5s.hpp"
-std::vector<DetectionResult> globalDetectionResults;
+
 static void dump_tensor_attr(rknn_tensor_attr *attr)
 {
     std::string shape_str = attr->n_dims < 1 ? "" : std::to_string(attr->dims[0]);
@@ -208,12 +208,15 @@ rknn_context *rkYolov5s::get_pctx()
     return &ctx;
 }
 
-cv::Mat rkYolov5s::infer(cv::Mat &orig_img)
-{
-    // 在 rkYolov5s.cpp 或其他合适的地方初始化
-
+cv::Mat rkYolov5s::infer(cv::Mat &orig_img, const std::string& camera_side)
+{    if (orig_img.empty()) {
+        throw std::invalid_argument("Empty image provided to infer function.");
+    }
 
     std::lock_guard<std::mutex> lock(mtx);
+
+
+
     cv::Mat img;
     cv::cvtColor(orig_img, img, cv::COLOR_BGR2RGB);
     img_width = img.cols;
@@ -280,11 +283,21 @@ cv::Mat rkYolov5s::infer(cv::Mat &orig_img)
                  box_conf_threshold, nms_threshold, pads, scale_w, scale_h, out_zps, out_scales, &detect_result_group);
 
     // 绘制框体/Draw the box
-    char text[512];//256
+    char text[256];
     for (int i = 0; i < detect_result_group.count; i++)
     {
         detect_result_t *det_result = &(detect_result_group.results[i]);
         sprintf(text, "%s %.1f%%", det_result->name, det_result->prop * 100);
+
+        // 使用 camera_side 参数来显示是哪个摄像头识别到的物体
+        printf("%s camera detected: %s @ (%d %d %d %d) %f\n", 
+               camera_side.c_str(), 
+               det_result->name, 
+               det_result->box.left, 
+               det_result->box.top,
+               det_result->box.right, 
+               det_result->box.bottom, 
+               det_result->prop);
         // 打印预测物体的信息/Prints information about the predicted object
         // printf("%s @ (%d %d %d %d) %f\n", det_result->name, det_result->box.left, det_result->box.top,
         //        det_result->box.right, det_result->box.bottom, det_result->prop);
@@ -294,8 +307,6 @@ cv::Mat rkYolov5s::infer(cv::Mat &orig_img)
         int y2 = det_result->box.bottom;
         rectangle(orig_img, cv::Point(x1, y1), cv::Point(x2, y2), cv::Scalar(256, 0, 0, 256), 3);
         putText(orig_img, text, cv::Point(x1, y1 + 12), cv::FONT_HERSHEY_SIMPLEX, 0.4, cv::Scalar(255, 255, 255));
-        globalDetectionResults.emplace_back(det_result->name, det_result->box.left, det_result->box.top,
-                                       det_result->box.right, det_result->box.bottom, det_result->prop);
     }
 
     ret = rknn_outputs_release(ctx, io_num.n_output, outputs);
