@@ -12,6 +12,7 @@
 #include "coreNum.hpp"
 #include "rkYolov5s.hpp"
 
+
 static void dump_tensor_attr(rknn_tensor_attr *attr)
 {
     std::string shape_str = attr->n_dims < 1 ? "" : std::to_string(attr->dims[0]);
@@ -94,11 +95,15 @@ static int saveFloat(const char *file_name, float *output, int element_size)
 
 rkYolov5s::rkYolov5s(const std::string &model_path)
 {
+    printf("dhasodhasiodhajsiodhasiodhsaoidhsaoidhoiashdoiasd_______________________1");
     this->model_path = model_path;
     nms_threshold = NMS_THRESH;      // 默认的NMS阈值
     box_conf_threshold = BOX_THRESH; // 默认的置信度阈值
-}
 
+}
+void rkYolov5s::setFilterType(const std::string& type) {
+    filter_type = type;
+}
 int rkYolov5s::init(rknn_context *ctx_in, bool share_weight)
 {
     printf("Loading model...\n");
@@ -209,7 +214,9 @@ rknn_context *rkYolov5s::get_pctx()
 }
 
 cv::Mat rkYolov5s::infer(cv::Mat &orig_img, const std::string& camera_side)
-{    if (orig_img.empty()) {
+{    
+        filter_type = "B"; 
+    if (orig_img.empty()) {
         throw std::invalid_argument("Empty image provided to infer function.");
     }
 
@@ -284,9 +291,19 @@ cv::Mat rkYolov5s::infer(cv::Mat &orig_img, const std::string& camera_side)
 
     // 绘制框体/Draw the box
     char text[256];
-    for (int i = 0; i < detect_result_group.count; i++)
-    {
-        detect_result_t *det_result = &(detect_result_group.results[i]);
+    for (int i = 0; i < detect_result_group.count; i++) {
+    detect_result_t *det_result = &(detect_result_group.results[i]);
+
+    std::string det_name = std::string(det_result->name); // 将 char 数组转换为 std::string
+
+    // 检查名称是否以过滤类型开头
+    if (!filter_type.empty() && det_name.rfind(filter_type, 0) != 0) {
+        continue; // 如果不匹配，跳过这个结果
+    }
+
+    // ... 绘制检测框和打印信息的代码 ...
+
+
         sprintf(text, "%s %.1f%%", det_result->name, det_result->prop * 100);
 
         // 使用 camera_side 参数来显示是哪个摄像头识别到的物体

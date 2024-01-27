@@ -23,15 +23,18 @@ int main(int argc, char **argv)
     char *model_name = (char *)"../../yolov5_L.rknn";
     char *vedio_name = (char *)"0";
 
+
     // 初始化rknn线程池/Initialize the rknn thread pool
-    int threadNum = 14;
+    int threadNum = 12;
     rknnPool<rkYolov5s, cv::Mat, cv::Mat> testPool(model_name, threadNum);
     if (testPool.init() != 0)
     {
         printf("rknnPool init fail!\n");
         return -1;
     }
-
+rkYolov5s detector("../../yolov5_L.rknn");
+printf("jijiang diao yong R lai guo lv le !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+detector.setFilterType("B");
     cv::namedWindow("Camera Left");
     cv::namedWindow("Camera Right");
 printf("--------------------------------------------------------------");

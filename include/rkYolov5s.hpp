@@ -40,6 +40,8 @@ public:
     rkYolov5s(const std::string &model_path);
     int init(rknn_context *ctx_in, bool isChild);
     rknn_context *get_pctx();
+    std::string filter_type; 
+    void setFilterType(const std::string& type);
 cv::Mat infer(cv::Mat &orig_img, const std::string& camera_side);
     ~rkYolov5s();
 };
