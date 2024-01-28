@@ -1,120 +1,127 @@
 #include <stdio.h>
 #include <memory>
 #include <sys/time.h>
-
+#include <rclcpp/rclcpp.hpp>
+#include "std_msgs/msg/string.hpp"
+#include <optional>
 #include "opencv2/core/core.hpp"
 #include "opencv2/highgui/highgui.hpp"
 #include "opencv2/imgproc/imgproc.hpp"
 #include "rkYolov5s.hpp"
 #include "rknnPool.hpp"
-int main(int argc, char **argv)
-{
-    // char *model_name = NULL;
-    // if (argc != 3)
-    // {
-    //     printf("Usage: %s <rknn model> <jpg> \n", argv[0]);
-    //     return -1;
-    // }
-    // // 参数二，模型所在路径/The path where the model is located
-    // model_name = (char *)argv[1];
-    // // 参数三, 视频/摄像头
-    // char *vedio_name = argv[2];
-        // 参数二，模型所在路径/The path where the model is located
-    char *model_name = (char *)"../../yolov5_L.rknn";
-    char *vedio_name = (char *)"0";
-
-
-    // 初始化rknn线程池/Initialize the rknn thread pool
-    int threadNum = 12;
-    rknnPool<rkYolov5s, cv::Mat, cv::Mat> testPool(model_name, threadNum);
-    if (testPool.init() != 0)
-    {
-        printf("rknnPool init fail!\n");
-        return -1;
+class FilterSubscriber : public rclcpp::Node {
+public:
+    FilterSubscriber() : Node("filter_subscriber"), new_filter_received(false) {
+        subscription_ = this->create_subscription<std_msgs::msg::String>(
+            "filter_topic", 10,
+            std::bind(&FilterSubscriber::filter_callback, this, std::placeholders::_1));
     }
-rkYolov5s detector("../../yolov5_L.rknn");
-printf("jijiang diao yong R lai guo lv le !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
-detector.setFilterType("B");
+
+    std::string getFilterType() const {
+        return filter_type;
+    }
+
+    bool isNewFilterReceived() {
+        bool temp = new_filter_received;
+        new_filter_received = false; // 重置标志
+        return temp;
+    }
+
+private:
+void filter_callback(const std_msgs::msg::String::SharedPtr msg) {
+    if (msg->data == "R" || msg->data == "B") {
+        FilterTypeManager::getInstance().setFilterType(msg->data);
+        new_filter_received = true;
+        RCLCPP_INFO(this->get_logger(), "New filter type received: '%s'", msg->data.c_str());
+    }
+}
+
+
+    std::string filter_type;
+    bool new_filter_received;
+    rclcpp::Subscription<std_msgs::msg::String>::SharedPtr subscription_;
+};
+
+int main(int argc, char **argv) {
+    rclcpp::init(argc, argv);
+
+    auto filter_subscriber = std::make_shared<FilterSubscriber>();
+    rkYolov5s detector("../../yolov5_L.rknn");
+
+    int threadNum = 12;
+    bool poolInitialized = false;
+ std::unique_ptr<rknnPool<rkYolov5s, cv::Mat, cv::Mat>> testPool;
+
     cv::namedWindow("Camera Left");
     cv::namedWindow("Camera Right");
-printf("--------------------------------------------------------------");
+
     cv::VideoCapture captureLeft, captureRight;
-    // 假设摄像头ID分别为0和1
-    captureLeft.open(0); 
+    captureLeft.open(0);
     captureRight.open(2);
-    // cv::VideoCapture capture;
-    // if (strlen(vedio_name) == 1)
-    //     capture.open((int)(vedio_name[0] - '0'));
-    // else
-    //     capture.open(vedio_name);
 
     struct timeval time;
     gettimeofday(&time, nullptr);
     auto startTime = time.tv_sec * 1000 + time.tv_usec / 1000;
     int frames = 0;
     auto beforeTime = startTime;
-    printf("+++++++++++++++++++++++++++++++++++++++++++");
-while (captureLeft.isOpened() && captureRight.isOpened()) {
+
+    bool startInference = false;
+
+    while (rclcpp::ok() && !startInference) {
+        rclcpp::spin_some(filter_subscriber);
+
+        if (filter_subscriber->isNewFilterReceived()) {
+            std::string filterType = filter_subscriber->getFilterType();
+            RCLCPP_INFO(filter_subscriber->get_logger(), "Setting filter type to: '%s'", filterType.c_str());
+            detector.setFilterType(filterType);
+            startInference = true;
+
+ testPool = std::make_unique<rknnPool<rkYolov5s, cv::Mat, cv::Mat>>("../../yolov5_L.rknn", threadNum);
+            if (testPool->init() != 0) {
+                printf("rknnPool init fail!\n");
+                return -1;
+            }
+
+            startInference = true;
+        }
+    }
     
-    cv::Mat imgLeft, imgRight;
-    bool hasFrameLeft = captureLeft.read(imgLeft);
-    bool hasFrameRight = captureRight.read(imgRight);
+    // 当跳出循环时，开始推理过程
+    while (startInference) {
+        cv::Mat imgLeft, imgRight;
+        bool hasFrameLeft = captureLeft.read(imgLeft);
+        bool hasFrameRight = captureRight.read(imgRight);
 
-    if (!hasFrameLeft || !hasFrameRight) {
-        std::cerr << "Failed to capture frame from camera." << std::endl;
-        break;
-    }
+        if (!hasFrameLeft || !hasFrameRight) {
+            std::cerr << "Failed to capture frame from camera." << std::endl;
+            break;
+        }
 
-    // 检查摄像头捕获的图像是否为空
-    if (imgLeft.empty()) {
-        std::cerr << "Empty frame received from left camera." << std::endl;
-        break; // 或者处理错误情况
-    }
-    if (imgRight.empty()) {
-        std::cerr << "Empty frame received from right camera." << std::endl;
-        break; // 或者处理错误情况
-    }
+        if (imgLeft.empty() || imgRight.empty()) {
+            std::cerr << "Empty frame received from camera." << std::endl;
+            continue;
+        }
 
+if (hasFrameLeft && testPool->put(std::make_pair(imgLeft, "left")) != 0)
+            break;
+        if (hasFrameRight && testPool->put(std::make_pair(imgRight, "right")) != 0)
+            break;
 
+        std::pair<cv::Mat, std::string> resultLeft;
+        std::pair<cv::Mat, std::string> resultRight;
+        if (frames >= threadNum) {
+            if (testPool->get(resultLeft) != 0 || testPool->get(resultRight) != 0)
+                break;
 
-// 提交左边摄像头图像到线程池，并标记为"left"
-if (hasFrameLeft && testPool.put(std::make_pair(imgLeft, "left")) != 0)
-    break;
+            cv::imshow("Camera Left", resultLeft.first);
+            cv::imshow("Camera Right", resultRight.first);
+        }
 
-// 提交右边摄像头图像到线程池，并标记为"right"
-if (hasFrameRight && testPool.put(std::make_pair(imgRight, "right")) != 0)
-    break;
-
-
-
-        // 获取处理后的图像
-std::pair<cv::Mat, std::string> resultLeft;
-std::pair<cv::Mat, std::string> resultRight;
-
-// 获取处理后的图像
-if (frames >= threadNum) {
-    if (testPool.get(resultLeft) != 0)
-        break;
-    if (testPool.get(resultRight) != 0)
-        break;
-
-    // 使用resultLeft.first和resultRight.first来获取图像
-    // 使用resultLeft.second和resultRight.second来获取摄像头标识
-    cv::imshow("Camera Left", resultLeft.first);
-    cv::imshow("Camera Right", resultRight.first);
-
-    // // 打印哪个摄像头检测到了物体
-    // if (!resultLeft.first.empty())
-    //     printf("Left camera detected objects.\n");
-    // if (!resultRight.first.empty())
-    //     printf("Right camera detected objects.\n");
-}
-        if (cv::waitKey(1) == 'q') // 延时1毫秒,按q键退出/Press q to exit
+        if (cv::waitKey(1) == 'q')
             break;
         frames++;
 
-        if (frames % 120 == 0)
-        {
+        if (frames % 120 == 0) {
             gettimeofday(&time, nullptr);
             auto currentTime = time.tv_sec * 1000 + time.tv_usec / 1000;
             printf("120帧内平均帧率:\t %f fps/s\n", 120.0 / float(currentTime - beforeTime) * 1000.0);
@@ -122,22 +129,10 @@ if (frames >= threadNum) {
         }
     }
 
-    // 清空rknn线程池/Clear the thread pool
-    // while (true)
-    // {
-    //     cv::Mat img;
-    //     if (testPool.get(img) != 0)
-    //         break;
-    //     cv::imshow("Camera FPS", img);
-    //     if (cv::waitKey(1) == 'q') // 延时1毫秒,按q键退出/Press q to exit
-    //         break;
-    //     frames++;
-    // }
-
     gettimeofday(&time, nullptr);
     auto endTime = time.tv_sec * 1000 + time.tv_usec / 1000;
-
     printf("Average:\t %f fps/s\n", float(frames) / float(endTime - startTime) * 1000.0);
 
+    rclcpp::shutdown();
     return 0;
 }

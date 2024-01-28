@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.4.1)
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pg")
-set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -pg")
+
 project(rknn_yolov5_demo)
 
-set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_CXX_FLAGS "-pthread")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -pthread")
+include_directories(/opt/ros/humble/include/rclcpp/rclcpp)
 
 # skip 3rd-party lib dependencies
 set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--allow-shlib-undefined")
@@ -24,8 +24,7 @@ set(RKNN_RT_LIB ${CMAKE_SOURCE_DIR}/include/librknnrt.so)
 
 #rga
 set(RGA_PATH ${CMAKE_SOURCE_DIR}/include/3rdparty/rga/RK3588)
-set(RGA_LIB ${RGA_PATH}/lib/Linux//${LIB_ARCH}/librga.so)
-
+set(RGA_LIB ${RGA_PATH}/lib/Linux/${LIB_ARCH}/librga.so)
 
 include_directories(${RKNN_API_PATH}/include)
 include_directories(${CMAKE_SOURCE_DIR}/include/3rdparty)
@@ -34,11 +33,17 @@ include_directories(${RGA_PATH}/include)
 # opencv
 find_package(OpenCV REQUIRED)
 
+# ROS 2 dependencies
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(std_msgs REQUIRED)
+
+include_directories(include ${rclcpp_INCLUDE_DIRS})
+
 set(CMAKE_INSTALL_RPATH "lib")
 
-
 # rknn_yolov5_demo
-include_directories( ${CMAKE_SOURCE_DIR}/include)
+include_directories(${CMAKE_SOURCE_DIR}/include)
 
 add_executable(rknn_yolov5_demo
         src/main.cc
@@ -47,12 +52,17 @@ add_executable(rknn_yolov5_demo
         src/rkYolov5s.cc
 )
 
+ament_target_dependencies(rknn_yolov5_demo
+  "rclcpp"
+  "std_msgs"
+)
+
 target_link_libraries(rknn_yolov5_demo
   ${RKNN_RT_LIB}
   ${OpenCV_LIBS}
   ${RGA_LIB}
+  ${rclcpp_LIBRARIES}
 )
-
 
 # install target and libraries
 set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/install/rknn_yolov5_demo_${CMAKE_SYSTEM_NAME})

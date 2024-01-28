@@ -12,6 +12,14 @@
 #include "coreNum.hpp"
 #include "rkYolov5s.hpp"
 
+void rkYolov5s::setFilterType(const std::string& type) {
+    if (!filter_type_set) { // 只有在第一次设置时才更新 filter_type
+        filter_type = type;
+        filter_type_set = true;
+        printf("Filter Type set to: %s\n", type.c_str());
+         printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Filter Type: %s\n", type.c_str());
+    }
+}
 
 static void dump_tensor_attr(rknn_tensor_attr *attr)
 {
@@ -95,15 +103,18 @@ static int saveFloat(const char *file_name, float *output, int element_size)
 
 rkYolov5s::rkYolov5s(const std::string &model_path)
 {
-    printf("dhasodhasiodhajsiodhasiodhsaoidhsaoidhoiashdoiasd_______________________1");
+    // printf("dhasodhasiodhajsiodhasiodhsaoidhsaoidhoiashdoiasd_______________________1");
     this->model_path = model_path;
     nms_threshold = NMS_THRESH;      // 默认的NMS阈值
     box_conf_threshold = BOX_THRESH; // 默认的置信度阈值
+    detector_node_ = std::make_shared<DetectorNode>();
 
 }
-void rkYolov5s::setFilterType(const std::string& type) {
-    filter_type = type;
-}
+// void rkYolov5s::setFilterType(const std::string& type) {
+//     filter_type = type;
+//     printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Filter Type: %s\n", type.c_str());
+// }
+
 int rkYolov5s::init(rknn_context *ctx_in, bool share_weight)
 {
     printf("Loading model...\n");
@@ -148,7 +159,7 @@ int rkYolov5s::init(rknn_context *ctx_in, bool share_weight)
         printf("rknn_init error ret=%d\n", ret);
         return -1;
     }
-    printf("sdk version: %s driver version: %s\n", version.api_version, version.drv_version);
+    // printf("sdk version: %s driver version: %s\n", version.api_version, version.drv_version);
 
     // 获取模型输入输出参数/Obtain the input and output parameters of the model
     ret = rknn_query(ctx, RKNN_QUERY_IN_OUT_NUM, &io_num, sizeof(io_num));
@@ -157,7 +168,7 @@ int rkYolov5s::init(rknn_context *ctx_in, bool share_weight)
         printf("rknn_init error ret=%d\n", ret);
         return -1;
     }
-    printf("model input num: %d, output num: %d\n", io_num.n_input, io_num.n_output);
+    // printf("model input num: %d, output num: %d\n", io_num.n_input, io_num.n_output);
 
     // 设置输入参数/Set the input parameters
     input_attrs = (rknn_tensor_attr *)calloc(io_num.n_input, sizeof(rknn_tensor_attr));
@@ -213,9 +224,22 @@ rknn_context *rkYolov5s::get_pctx()
     return &ctx;
 }
 
-cv::Mat rkYolov5s::infer(cv::Mat &orig_img, const std::string& camera_side)
-{    
-        filter_type = "B"; 
+cv::Mat rkYolov5s::infer(cv::Mat &orig_img, const std::string& camera_side) {
+    std::string filterType = FilterTypeManager::getInstance().getFilterType();
+    if (filterType.empty()) {
+        throw std::runtime_error("Filter type is not set.");
+    }
+ printf("Filter Type: %s\n", filterType.c_str());
+
+    // if (!filter_type_set) {
+    //     throw std::runtime_error("Filter type has not been set.");
+    // }
+    // printf("Infer called with filter type: %s\n", filter_type.c_str());
+
+    // if (filter_type.empty()) {
+    //     throw std::runtime_error("Filter type is not set.");
+    // }
+    // filter_type = "B"; 
     if (orig_img.empty()) {
         throw std::invalid_argument("Empty image provided to infer function.");
     }
@@ -293,17 +317,16 @@ cv::Mat rkYolov5s::infer(cv::Mat &orig_img, const std::string& camera_side)
     char text[256];
     for (int i = 0; i < detect_result_group.count; i++) {
     detect_result_t *det_result = &(detect_result_group.results[i]);
+    std::string det_name = std::string(det_result->name);
 
-    std::string det_name = std::string(det_result->name); // 将 char 数组转换为 std::string
-
-    // 检查名称是否以过滤类型开头
-    if (!filter_type.empty() && det_name.rfind(filter_type, 0) != 0) {
+    // 使用 filterType 进行过滤
+    if (!filterType.empty() && det_name.find(filterType) == std::string::npos) {
         continue; // 如果不匹配，跳过这个结果
     }
 
-    // ... 绘制检测框和打印信息的代码 ...
+printf("Checking detection: %s against filter: %s\n", det_name.c_str(), filter_type.c_str());
 
-
+ 
         sprintf(text, "%s %.1f%%", det_result->name, det_result->prop * 100);
 
         // 使用 camera_side 参数来显示是哪个摄像头识别到的物体
@@ -324,7 +347,12 @@ cv::Mat rkYolov5s::infer(cv::Mat &orig_img, const std::string& camera_side)
         int y2 = det_result->box.bottom;
         rectangle(orig_img, cv::Point(x1, y1), cv::Point(x2, y2), cv::Scalar(256, 0, 0, 256), 3);
         putText(orig_img, text, cv::Point(x1, y1 + 12), cv::FONT_HERSHEY_SIMPLEX, 0.4, cv::Scalar(255, 255, 255));
+if (detector_node_) {
+            std::string message = camera_side + " camera detected: " + det_result->name;
+            detector_node_->publish_detection(message);
+        }
     }
+    
 
     ret = rknn_outputs_release(ctx, io_num.n_output, outputs);
 

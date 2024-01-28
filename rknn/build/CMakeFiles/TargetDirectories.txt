@@ -1,4 +1,7 @@
+/home/orangepi/Desktop/rknn/build/CMakeFiles/uninstall.dir
+/home/orangepi/Desktop/rknn/build/CMakeFiles/rknn_yolov5_demo_uninstall.dir
 /home/orangepi/Desktop/rknn/build/CMakeFiles/rknn_yolov5_demo.dir
+/home/orangepi/Desktop/rknn/build/CMakeFiles/test.dir
 /home/orangepi/Desktop/rknn/build/CMakeFiles/edit_cache.dir
 /home/orangepi/Desktop/rknn/build/CMakeFiles/rebuild_cache.dir
 /home/orangepi/Desktop/rknn/build/CMakeFiles/list_install_components.dir

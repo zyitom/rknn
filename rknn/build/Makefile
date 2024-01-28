@@ -65,6 +65,16 @@ CMAKE_BINARY_DIR = /home/orangepi/Desktop/rknn/build
 #=============================================================================
 # Targets provided globally by CMake.
 
+# Special rule for the target test
+test:
+	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "Running tests..."
+	/usr/bin/ctest --force-new-ctest-process $(ARGS)
+.PHONY : test
+
+# Special rule for the target test
+test/fast: test
+.PHONY : test/fast
+
 # Special rule for the target edit_cache
 edit_cache:
 	@$(CMAKE_COMMAND) -E cmake_echo_color --switch=$(COLOR) --cyan "No interactive CMake dialog available..."
@@ -160,6 +170,32 @@ preinstall/fast:
 depend:
 	$(CMAKE_COMMAND) -S$(CMAKE_SOURCE_DIR) -B$(CMAKE_BINARY_DIR) --check-build-system CMakeFiles/Makefile.cmake 1
 .PHONY : depend
+
+#=============================================================================
+# Target rules for targets named uninstall
+
+# Build rule for target.
+uninstall: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 uninstall
+.PHONY : uninstall
+
+# fast build rule for target.
+uninstall/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/uninstall.dir/build.make CMakeFiles/uninstall.dir/build
+.PHONY : uninstall/fast
+
+#=============================================================================
+# Target rules for targets named rknn_yolov5_demo_uninstall
+
+# Build rule for target.
+rknn_yolov5_demo_uninstall: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 rknn_yolov5_demo_uninstall
+.PHONY : rknn_yolov5_demo_uninstall
+
+# fast build rule for target.
+rknn_yolov5_demo_uninstall/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/rknn_yolov5_demo_uninstall.dir/build.make CMakeFiles/rknn_yolov5_demo_uninstall.dir/build
+.PHONY : rknn_yolov5_demo_uninstall/fast
 
 #=============================================================================
 # Target rules for targets named rknn_yolov5_demo
@@ -282,6 +318,9 @@ help:
 	@echo "... install/strip"
 	@echo "... list_install_components"
 	@echo "... rebuild_cache"
+	@echo "... test"
+	@echo "... rknn_yolov5_demo_uninstall"
+	@echo "... uninstall"
 	@echo "... rknn_yolov5_demo"
 	@echo "... src/main.o"
 	@echo "... src/main.i"
